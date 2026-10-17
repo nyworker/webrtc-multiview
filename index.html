@@ -21,6 +21,13 @@
     background: rgba(0,0,0,.6); color: #ccc; font-size: 13px;
   }
   .status:empty { display: none; }
+  .title {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    max-width: calc(100% - 200px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 4px 12px; border-radius: 4px; background: rgba(0,0,0,.6);
+    color: #fff; font-size: 16px; font-weight: 600; pointer-events: none;
+  }
+  .title:empty { display: none; }
   .controls {
     position: absolute; right: 10px; bottom: 10px; display: flex; gap: 6px;
     opacity: 0; transition: opacity .2s;
@@ -52,8 +59,8 @@
 
 <script src="config.js"></script>
 <script>
-// One entry per tile. Set window.STREAMS in config.js (see config.example.js);
-// otherwise assume MediaMTX runs on the host serving this page.
+// One entry per tile: a URL, or { url, title }. Set window.STREAMS in config.js
+// (see config.example.js); otherwise assume MediaMTX runs on the host serving this page.
 const STREAMS = window.STREAMS
   || Array(4).fill(`${location.protocol}//${location.hostname}:8889/mystream/`);
 
@@ -61,17 +68,22 @@ const ICON_MUTED = '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><pa
 const ICON_SOUND = '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>';
 const ICON_FULL  = '<svg viewBox="0 0 24 24"><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6"/></svg>';
 
-function makeTile(url) {
+function makeTile(entry) {
+  const url = typeof entry === 'string' ? entry : entry.url;
+  // Default title is the stream path, e.g. "mystream".
+  const title = entry.title ?? new URL(url).pathname.replace(/^\/|\/$/g, '');
   const tile = document.createElement('div');
   tile.className = 'tile';
   tile.innerHTML = `
     <video autoplay playsinline muted disablepictureinpicture></video>
     <div class="status">Connecting…</div>
+    <div class="title"></div>
     <div class="vu"><div class="ch"><div class="fill"></div><div class="peak"></div></div><div class="ch"><div class="fill"></div><div class="peak"></div></div></div>
     <div class="controls">
       <button class="mute" title="Unmute">${ICON_MUTED}</button>
       <button class="full" title="Fullscreen">${ICON_FULL}</button>
     </div>`;
+  tile.querySelector('.title').textContent = title;
   const video = tile.querySelector('video');
   const status = tile.querySelector('.status');
   const muteBtn = tile.querySelector('.mute');
