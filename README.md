@@ -7,6 +7,17 @@ Each tile plays its stream over WHEP, with mute/fullscreen buttons (no pause) an
 
 1. `cp config.example.js config.js` and set your stream URLs.
    Without `config.js`, the page assumes MediaMTX runs on the host serving it.
+
+   Each tile shows a title at the bottom center, defaulting to the stream path
+   (e.g. `mystream`). To set your own, use `{ url, title }` instead of a plain URL:
+
+   ```js
+   window.STREAMS = [
+     { url: 'http://mediamtx-host:8889/cam1/', title: 'Front door' },
+     'http://mediamtx-host:8889/cam2/',
+     // ...
+   ];
+   ```
 2. Serve the directory over HTTP (MediaMTX rejects WHEP requests from `file://` pages):
 
    ```
