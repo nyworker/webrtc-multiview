@@ -112,26 +112,14 @@ function makeTile(entry) {
 }
 
 // Shared audio context for stereo VU metering. Browsers keep it suspended until
-// the user interacts with the page; until then the meters fall back to the
-// (mono) audio level reported by WebRTC stats, which needs no interaction.
+// the user interacts with the page (unless the site is allowed to play sound), so
+// the meters stay flat until then. WebRTC stats can't stand in: Chrome reports
+// audioLevel 0 for audio that isn't played out, and the tiles start muted.
 const audioCtx = new AudioContext();
 const meters = [];
 audioCtx.resume();
 ['pointerdown', 'keydown'].forEach(ev =>
   document.addEventListener(ev, () => audioCtx.resume(), { capture: true }));
-
-setInterval(async () => {
-  if (audioCtx.state === 'running') return;
-  for (const m of meters) {
-    if (!m.pc) continue;
-    try {
-      (await m.pc.getStats()).forEach(r => {
-        if (r.type === 'inbound-rtp' && r.kind === 'audio' && r.audioLevel !== undefined)
-          m.statsLevel = r.audioLevel;
-      });
-    } catch {}
-  }
-}, 100);
 
 function makeMeter(el) {
   const chans = [...el.querySelectorAll('.ch')].map(ch => ({
@@ -141,7 +129,7 @@ function makeMeter(el) {
   }));
   let source = null;
   const meter = {
-    chans, pc: null, statsLevel: 0,
+    chans,
     attach(track) {
       if (source) source.disconnect();
       source = audioCtx.createMediaStreamSource(new MediaStream([track]));
@@ -165,10 +153,9 @@ function drawMeters(now) {
   const dt = (now - lastFrame) / 1000;
   lastFrame = now;
   for (const m of meters) for (const c of m.chans) {
-    let max = m.statsLevel;
+    let max = 0;
     if (c.analyser && audioCtx.state === 'running') {
       c.analyser.getFloatTimeDomainData(c.buf);
-      max = 0;
       for (const v of c.buf) max = Math.max(max, Math.abs(v));
     }
     const db = max > 0 ? 20 * Math.log10(max) : -Infinity;
@@ -187,8 +174,6 @@ requestAnimationFrame(drawMeters);
 // Minimal WHEP client; reconnects whenever the connection drops.
 async function play(url, video, status, meter) {
   const pc = new RTCPeerConnection();
-  meter.pc = pc;
-  meter.statsLevel = 0;
   let retried = false;
   const retry = () => {
     if (retried) return;

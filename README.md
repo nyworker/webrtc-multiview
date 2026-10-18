@@ -28,10 +28,10 @@ Each tile plays its stream over WHEP (or HLS via hls.js for URLs ending in `.m3u
 
 HLS servers must allow cross-origin requests (`Access-Control-Allow-Origin`).
 
-The VU meters start in mono (from WebRTC stats) and switch to stereo after the first
-click or key press, when the browser allows Web Audio. To get stereo straight away,
-allow Sound for the page in the browser's site settings. HLS tiles have no WebRTC
-stats, so their meters stay flat until that first click.
+The VU meters use Web Audio, which browsers only start after the first click or key
+press on the page, so the meters stay flat until then. To have them run straight away,
+allow Sound for the page in the browser's site settings, or start Chrome with
+`--autoplay-policy=no-user-gesture-required`.
 
 ## Test feed
 
