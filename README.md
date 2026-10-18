@@ -31,7 +31,22 @@ HLS servers must allow cross-origin requests (`Access-Control-Allow-Origin`).
 The VU meters use Web Audio, which browsers only start after the first click or key
 press on the page, so the meters stay flat until then. To have them run straight away,
 allow Sound for the page in the browser's site settings, or start Chrome with
-`--autoplay-policy=no-user-gesture-required`.
+`--autoplay-policy=no-user-gesture-required` (see below).
+
+## Kiosk mode
+
+For a dedicated display, run Chrome fullscreen with the meters on from the start:
+
+```
+google-chrome --user-data-dir="$HOME/.config/chrome-multiview" \
+  --autoplay-policy=no-user-gesture-required \
+  --no-first-run --kiosk http://localhost:8000
+```
+
+`--user-data-dir` starts a separate Chrome instance; without it, the URL opens in an
+already-running Chrome and the flags are ignored. Close kiosk mode with Alt+F4.
+For fullscreen you can leave with F11, use `--start-fullscreen --app=http://localhost:8000`
+in place of `--kiosk http://localhost:8000`.
 
 ## Test feed
 
