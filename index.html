@@ -58,8 +58,10 @@
 <div class="grid" id="grid"></div>
 
 <script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 <script>
-// One entry per tile: a URL, or { url, title }. Set window.STREAMS in config.js
+// One entry per tile: a URL, or { url, title }. MediaMTX WebRTC URLs play over WHEP;
+// URLs ending in .m3u8 play as HLS. Set window.STREAMS in config.js
 // (see config.example.js); otherwise assume MediaMTX runs on the host serving this page.
 const STREAMS = window.STREAMS
   || Array(4).fill(`${location.protocol}//${location.hostname}:8889/mystream/`);
@@ -70,8 +72,9 @@ const ICON_FULL  = '<svg viewBox="0 0 24 24"><path d="M3 9V3h6M21 9V3h-6M3 15v6h
 
 function makeTile(entry) {
   const url = typeof entry === 'string' ? entry : entry.url;
+  const isHls = /\.m3u8$/i.test(new URL(url).pathname);
   // Default title is the stream path, e.g. "mystream".
-  const title = entry.title ?? new URL(url).pathname.replace(/^\/|\/$/g, '');
+  const title = entry.title ?? new URL(url).pathname.replace(/^\/|\/$|\.m3u8$/gi, '');
   const tile = document.createElement('div');
   tile.className = 'tile';
   tile.innerHTML = `
@@ -90,7 +93,7 @@ function makeTile(entry) {
 
   // No pausing: block the context menu (which has Play/Pause) and resume if anything pauses it.
   video.addEventListener('contextmenu', e => e.preventDefault());
-  video.addEventListener('pause', () => video.play().catch(() => {}));
+  video.addEventListener('pause', () => video.ended || video.play().catch(() => {}));
 
   muteBtn.onclick = () => {
     video.muted = !video.muted;
@@ -105,7 +108,7 @@ function makeTile(entry) {
 
   document.getElementById('grid').appendChild(tile);
   const meter = makeMeter(tile.querySelector('.vu'));
-  play(url, video, status, meter);
+  (isHls ? playHls : play)(url, video, status, meter);
 }
 
 // Shared audio context for stereo VU metering. Browsers keep it suspended until
@@ -226,6 +229,63 @@ async function play(url, video, status, meter) {
     console.warn(url, err);
     retry();
   }
+}
+
+// HLS via hls.js (native playback where hls.js isn't supported, e.g. iOS Safari);
+// restarts after fatal errors, if playback stalls for 30s, or when the stream ends.
+// A playlist marked #EXT-X-ENDLIST means the source stopped, so wait for it to go
+// live again rather than replaying the leftover segments. No WebRTC stats here,
+// so the meter needs Web Audio and stays flat until the first click/key.
+function playHls(url, video, status, meter) {
+  let hls = null;
+  let lastProgress = performance.now();
+  video.addEventListener('timeupdate', () => { lastProgress = performance.now(); });
+  video.addEventListener('ended', () => hls && restart());
+  video.addEventListener('playing', () => { status.textContent = ''; });
+  video.addEventListener('playing', () => {
+    const s = video.captureStream?.();
+    if (!s) return;
+    s.getAudioTracks().slice(0, 1).forEach(t => meter.attach(t));
+    s.addEventListener('addtrack', e => e.track.kind === 'audio' && meter.attach(e.track));
+  }, { once: true });
+
+  if (!window.Hls?.isSupported()) {
+    video.src = url;
+    return;
+  }
+  const restart = () => {
+    hls.destroy();
+    hls = null;
+    status.textContent = 'Reconnecting…';
+    setTimeout(start, 2000);
+  };
+  const start = async () => {
+    try {
+      const playlist = await (await fetch(url, { cache: 'no-store' })).text();
+      if (playlist.includes('#EXT-X-ENDLIST')) {
+        status.textContent = 'Stream offline';
+        setTimeout(start, 5000);
+        return;
+      }
+    } catch {
+      status.textContent = 'Reconnecting…';
+      setTimeout(start, 5000);
+      return;
+    }
+    lastProgress = performance.now();
+    hls = new Hls({ liveDurationInfinity: true });
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      console.warn(url, data);
+      restart();
+    });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+  };
+  setInterval(() => {
+    if (hls && performance.now() - lastProgress > 30000) restart();
+  }, 5000);
+  start();
 }
 
 STREAMS.forEach(makeTile);

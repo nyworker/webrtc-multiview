@@ -1,7 +1,7 @@
 # webrtc-multiview
 
-A 2×2 multiview page for [MediaMTX](https://github.com/bluenviron/mediamtx) WebRTC streams.
-Each tile plays its stream over WHEP, with mute/fullscreen buttons (no pause) and a VU meter.
+A 2×2 multiview page for [MediaMTX](https://github.com/bluenviron/mediamtx) WebRTC streams and HLS.
+Each tile plays its stream over WHEP (or HLS via hls.js for URLs ending in `.m3u8`), with mute/fullscreen buttons (no pause) and a VU meter.
 
 ## Usage
 
@@ -26,9 +26,12 @@ Each tile plays its stream over WHEP, with mute/fullscreen buttons (no pause) an
 
 3. Open http://localhost:8000/
 
+HLS servers must allow cross-origin requests (`Access-Control-Allow-Origin`).
+
 The VU meters start in mono (from WebRTC stats) and switch to stereo after the first
 click or key press, when the browser allows Web Audio. To get stereo straight away,
-allow Sound for the page in the browser's site settings.
+allow Sound for the page in the browser's site settings. HLS tiles have no WebRTC
+stats, so their meters stay flat until that first click.
 
 ## Test feed
 
