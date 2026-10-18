@@ -35,7 +35,9 @@ allow Sound for the page in the browser's site settings, or start Chrome with
 
 ## Kiosk mode
 
-For a dedicated display, run Chrome fullscreen with the meters on from the start:
+For a dedicated display, run `./kiosk.sh`. It serves the page on port 8000 (or
+`$PORT`) if nothing is running there yet, and opens it in fullscreen Chrome with the
+meters on from the start. The server stops when Chrome closes. The Chrome part is:
 
 ```
 google-chrome --user-data-dir="$HOME/.config/chrome-multiview" \
